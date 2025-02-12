@@ -16,6 +16,7 @@ mod sbi;
 mod scheduler;
 mod syscall;
 mod timer;
+mod irq;
 pub mod uart;
 
 pub use capability::CapabilityType;

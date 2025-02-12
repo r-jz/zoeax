@@ -17,6 +17,7 @@ pub mod notification;
 pub mod page_table;
 pub mod tcb;
 pub mod untyped;
+pub mod irq;
 
 const_assert!(mem::size_of::<CapabilityData<Something>>() == (mem::size_of::<u64>() * 2));
 
