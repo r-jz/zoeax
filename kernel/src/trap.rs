@@ -4,11 +4,7 @@ use core::{
 };
 
 use crate::{
-    object::Registers,
-    riscv::{r_scause, r_sepc, r_stval},
-    scheduler::{get_current_reg, get_current_tcb_mut, schedule, timer_tick, CpuVar},
-    syscall::handle_syscall,
-    timer::set_timer,
+    irq::handle_irq, object::Registers, riscv::{r_scause, r_sepc, r_stval}, scheduler::{get_current_reg, get_current_tcb_mut, schedule, timer_tick, CpuVar}, syscall::handle_syscall, timer::set_timer
 };
 
 // I wanna use enum;
@@ -166,10 +162,7 @@ fn handle_trap() -> ! {
                 )
             }
             SUPREVISOREXTERNAL => {
-                panic!(
-                    "supervisor external scause={:x}, stval={:x}, sepc={:x}",
-                    code, stval, user_pc
-                )
+                handle_irq();
             }
             COUNTER_OVERFLOW => {
                 panic!(
