@@ -1,6 +1,6 @@
 use crate::{
     address::PAGE_SIZE,
-    capability::{cap_try_from_u8, CapabilityType},
+    capability::{cap_try_from_u8, irq::IrqControl, CapabilityType},
     common::{is_aligned, ErrKind, KernelResult},
     kerr,
     object::{
@@ -303,6 +303,31 @@ fn handle_invocation(
                 InvLabel::PageTableMakeRoot => {
                     page_table_cap.make_as_root()?;
                     Ok(None)
+                }
+                _ => Err(kerr!(ErrKind::UnknownInvocation)),
+            }
+        },
+        CapabilityType::IrqControl => {
+            let irq_control_cap = slot.cap_ref_mut().try_ref_mut_as::<IrqControl>()?;
+            let irq_number = reg.a3;
+            // 1: get irq stats and check whether already activated or.
+            let dest_ptr = reg.a4;
+            let dest_depth = reg.a5 as u32;
+            let dest_slot = root_cnode.lookup_entry_mut(dest_ptr, dest_depth)?;
+            dest_slot.is_none().then_some(()).ok_or(kerr!(ErrKind::NotEmptySlot))?;
+            // 2: set irq to global vars
+            // 3: activate plic irq level or edge trigger TODO
+            // 4: create irq cap and insert dest slot
+            Ok(None)
+        },
+        CapabilityType::IrqHandler => {
+            let irq_handler_cap = slot.cap_ref_mut().try_ref_mut_as::<IrqControl>()?;
+            match inv_label {
+                InvLabel::IRQHandlerAck => {
+                    todo!()
+                },
+                InvLabel::IRQHandlerSet => {
+                    todo!()
                 }
                 _ => Err(kerr!(ErrKind::UnknownInvocation)),
             }

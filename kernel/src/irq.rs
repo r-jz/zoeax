@@ -3,6 +3,7 @@ use core::mem::MaybeUninit;
 
 const MAX_IRQ: usize = 128; 
 
+// TODO: Have to think why they are separanted.
 static mut IRQ_STATS: [IRQStatus; MAX_IRQ + 1] = [IRQStatus::Inactive; MAX_IRQ + 1];
 static mut IRQ_NODES: MaybeUninit<[CSlot<Notification>; MAX_IRQ + 1]> = MaybeUninit::uninit();
 
@@ -14,7 +15,6 @@ pub enum IRQStatus {
     IrqSignal,
     IrqTimer
 }
-
 
 pub unsafe fn handle_irq() {
     let activate = get_active_irq();

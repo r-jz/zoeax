@@ -2,33 +2,33 @@ use crate::object::KObject;
 
 use super::{Capability, CapabilityData, CapabilityType};
 
-pub struct Irqs;
+pub struct IrqControl;
 
-impl KObject for Irqs {}
+impl KObject for IrqControl {}
 
-pub type IrqControl = CapabilityData<Irqs>;
+pub type IrqControlCap = CapabilityData<IrqControl>;
 
-pub struct Irq;
+pub struct IrqHandler;
 
-impl KObject for Irq {}
+impl KObject for IrqHandler {}
 
-pub type IrqHandler = CapabilityData<Irq>;
+pub type IrqHandlerCap = CapabilityData<IrqHandler>;
 
-impl Capability for IrqControl {
+impl Capability for IrqControlCap {
     const CAP_TYPE: CapabilityType = CapabilityType::IrqControl;
-    type KernelObject = Irqs;
+    type KernelObject = IrqControl;
 
     fn init_object(&mut self) {}
 }
 
-impl Capability for IrqHandler {
+impl Capability for IrqHandlerCap {
     const CAP_TYPE: CapabilityType = CapabilityType::IrqHandler;
-    type KernelObject = Irq;
+    type KernelObject = IrqHandler;
 
     fn init_object(&mut self) {}
 }
 
-impl IrqHandler {
+impl IrqHandlerCap {
     pub fn get_irq_number(&self) -> u64 {
         self.cap_dep_val & 0xfff
     }
