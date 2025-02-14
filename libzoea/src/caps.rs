@@ -1,8 +1,6 @@
 use crate::{
     syscall::{
-        cnode_copy, cnode_mint, configure_tcb, make_page_table_root, map_page, map_page_table,
-        recv_ipc, recv_signal, resume_tcb, send_ipc, send_signal, set_ipc_buffer, unmap_page,
-        untyped_retype, write_reg, SysCallFailed,
+        cnode_copy, cnode_mint, configure_tcb, irq_control, irq_handler_ack, irq_handler_set, make_page_table_root, map_page, map_page_table, recv_ipc, recv_signal, resume_tcb, send_ipc, send_signal, set_ipc_buffer, unmap_page, untyped_retype, write_reg, SysCallFailed
     },
     IPCBuffer,
 };
@@ -12,10 +10,13 @@ use shared::{registers::Registers, types::UntypedInfo};
 
 pub trait KernelObject {
     const CAP_TYPE: CapabilityType;
-    fn from_retype(user_size: usize, is_device: bool) -> Self;
 }
 
-pub trait FixedSizeObject: KernelObject {
+pub trait FromUntype: KernelObject {
+    fn from_untype(user_size: usize, is_device: bool) -> Self;
+}
+
+pub trait FixedSizeObject: FromUntype {
     const OBJECT_SIZE: usize;
 }
 
@@ -44,7 +45,10 @@ pub struct Untyped {
 
 impl KernelObject for Untyped {
     const CAP_TYPE: CapabilityType = CapabilityType::Untyped;
-    fn from_retype(user_size: usize, is_device: bool) -> Self {
+}
+
+impl FromUntype for Untyped {
+    fn from_untype(user_size: usize, is_device: bool) -> Self {
         Self {
             size_bits: user_size,
             is_device,
@@ -64,7 +68,10 @@ pub struct CNode {
 
 impl KernelObject for CNode {
     const CAP_TYPE: CapabilityType = CapabilityType::CNode;
-    fn from_retype(user_size: usize, _is_device: bool) -> Self {
+}
+
+impl FromUntype for CNode {
+    fn from_untype(user_size: usize, _is_device: bool) -> Self {
         Self {
             radix: user_size as u32,
             cursor: 0,
@@ -81,7 +88,10 @@ pub struct PageTable {
 
 impl KernelObject for PageTable {
     const CAP_TYPE: CapabilityType = CapabilityType::PageTable;
-    fn from_retype(_user_size: usize, _is_device: bool) -> Self {
+}
+
+impl FromUntype for PageTable {
+    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
         Self {
             mapped_address: 0,
             is_root: false,
@@ -103,7 +113,10 @@ pub struct Page {
 
 impl KernelObject for Page {
     const CAP_TYPE: CapabilityType = CapabilityType::Page;
-    fn from_retype(_user_size: usize, _is_device: bool) -> Self {
+}
+
+impl FromUntype for Page {
+    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
         Self {
             mapped_address: 0,
             is_mapped: false,
@@ -127,7 +140,9 @@ pub struct Endpoint {}
 
 impl KernelObject for Endpoint {
     const CAP_TYPE: CapabilityType = CapabilityType::EndPoint;
-    fn from_retype(_user_size: usize, _is_device: bool) -> Self {
+}
+impl FromUntype for Endpoint {
+    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
         Self {}
     }
 }
@@ -147,11 +162,13 @@ pub struct Notificaiton {}
 
 impl KernelObject for Notificaiton {
     const CAP_TYPE: CapabilityType = CapabilityType::Notification;
-    fn from_retype(_user_size: usize, _is_device: bool) -> Self {
+}
+
+impl FromUntype for Notificaiton {
+    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
         Self {}
     }
 }
-
 impl FixedSizeObject for Notificaiton {
     const OBJECT_SIZE: usize = 0;
 }
@@ -173,7 +190,10 @@ pub struct ThreadControlBlock {}
 
 impl KernelObject for ThreadControlBlock {
     const CAP_TYPE: CapabilityType = CapabilityType::Tcb;
-    fn from_retype(_user_size: usize, _is_device: bool) -> Self {
+}
+
+impl FromUntype for ThreadControlBlock {
+    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
         Self {}
     }
 }
@@ -181,6 +201,24 @@ impl KernelObject for ThreadControlBlock {
 impl FixedSizeObject for ThreadControlBlock {
     // Dummy
     const OBJECT_SIZE: usize = 0;
+}
+
+#[derive(Debug, Default)]
+pub struct IRQControl {
+    // bit_map
+    irqs_status: usize
+}
+
+impl KernelObject for IRQControl {
+    const CAP_TYPE: CapabilityType = CapabilityType::IrqControl;
+}
+
+pub struct IRQHandler {
+    irq_number: usize
+}
+
+impl KernelObject for IRQHandler {
+    const CAP_TYPE: CapabilityType = CapabilityType::IrqHandler;
 }
 
 pub type UntypedCapability = Capability<Untyped>;
@@ -198,7 +236,7 @@ impl UntypedCapability {
         }
     }
 
-    pub fn retype_single<T: KernelObject>(
+    pub fn retype_single<T: FromUntype>(
         &mut self,
         slot: &mut CSlot,
         user_size: usize,
@@ -214,7 +252,7 @@ impl UntypedCapability {
             num,
             T::CAP_TYPE,
         )?;
-        let new_c = T::from_retype(user_size, self.cap_data.is_device);
+        let new_c = T::from_untype(user_size, self.cap_data.is_device);
         // We have to caluculate new cap postion.
         let (cap_ptr, cap_depth) = slot.get_cap_ptr();
         Ok(Capability {
@@ -523,5 +561,40 @@ impl NotificaitonCapability {
 
     pub fn wait(&self) -> Result<usize, SysCallFailed> {
         recv_signal(self.cap_ptr, self.cap_depth)
+    }
+}
+
+pub type IRQControlCapability = Capability<IRQControl>;
+
+impl IRQControlCapability {
+    pub fn control(&mut self, irq_number: usize, slot: &mut CSlot) -> Result<IRQHandlerCapabilitry, SysCallFailed> {
+        // TODO: because of bitmap
+        (irq_number < 64).then_some(()).ok_or((ErrKind::InvalidOperation, 0))?;
+        ((self.cap_data.irqs_status & irq_number) == 0).then_some(()).ok_or((ErrKind::InvalidOperation, 0))?;
+        let (dest_ptr, dest_depth) = slot.get_cap_ptr();
+        irq_control(self.cap_ptr, self.cap_depth, irq_number, dest_ptr, dest_depth)?;
+        self.cap_data.irqs_status |= irq_number;
+        let irq_hadler = IRQHandlerCapabilitry {
+            cap_ptr: dest_ptr,
+            cap_depth: dest_depth,
+            cap_data: IRQHandler { irq_number }
+        };
+        Ok(irq_hadler)
+
+    }
+}
+
+
+pub type IRQHandlerCapabilitry = Capability<IRQHandler>;
+
+impl IRQHandlerCapabilitry {
+    pub fn ack(&mut self) -> Result<(), SysCallFailed> {
+        irq_handler_ack(self.cap_ptr, self.cap_depth)?;
+        Ok(())
+    }
+
+    pub fn set(&mut self, not: &mut NotificaitonCapability) -> Result<(), SysCallFailed> {
+        irq_handler_set(self.cap_ptr, self.cap_depth, not.cap_ptr, not.cap_depth)?;
+        Ok(())
     }
 }

@@ -6,7 +6,7 @@ pub struct Irqs;
 
 impl KObject for Irqs {}
 
-pub type IrqController = CapabilityData<Irqs>;
+pub type IrqControl = CapabilityData<Irqs>;
 
 pub struct Irq;
 
@@ -14,7 +14,7 @@ impl KObject for Irq {}
 
 pub type IrqHandler = CapabilityData<Irq>;
 
-impl Capability for IrqController {
+impl Capability for IrqControl {
     const CAP_TYPE: CapabilityType = CapabilityType::IrqControl;
     type KernelObject = Irqs;
 
@@ -22,7 +22,7 @@ impl Capability for IrqController {
 }
 
 impl Capability for IrqHandler {
-    const CAP_TYPE: CapabilityType = CapabilityType::IrqHandle;
+    const CAP_TYPE: CapabilityType = CapabilityType::IrqHandler;
     type KernelObject = Irq;
 
     fn init_object(&mut self) {}
