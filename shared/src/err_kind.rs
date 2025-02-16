@@ -23,6 +23,9 @@ pub enum ErrKind {
     NotAligned,
     UnknownSysCall,
     NotRootPageTable,
+    IRQInvalid,
+    IRQAlreadyActive,
+    UnknownIRQ,
 }
 
 impl TryFrom<usize> for ErrKind {

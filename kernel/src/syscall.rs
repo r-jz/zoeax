@@ -1,17 +1,10 @@
 use crate::{
-    address::PAGE_SIZE,
-    capability::{cap_try_from_u8, irq::IrqControl, CapabilityType},
-    common::{is_aligned, ErrKind, KernelResult},
-    kerr,
-    object::{
+    address::PAGE_SIZE, capability::{cap_try_from_u8, irq::{IrqControl, IrqHandler, IrqHandlerCap}, CapabilityType}, common::{is_aligned, ErrKind, KernelResult}, irq::{activate_irq, set_irq}, kerr, object::{
         get_user_flags,
         page_table::{Page, PAGE_U},
         CNode, CNodeEntry, Endpoint, Notification, PageTable, Registers, ThreadControlBlock,
         Untyped,
-    },
-    println,
-    scheduler::{get_current_tcb_mut, require_schedule},
-    uart::putchar,
+    }, println, scheduler::{get_current_tcb_mut, require_schedule}, uart::putchar
 };
 pub use shared::inv_labels::InvLabel;
 pub use shared::syscall_no::SysCallNo;
@@ -308,26 +301,38 @@ fn handle_invocation(
             }
         },
         CapabilityType::IrqControl => {
-            let irq_control_cap = slot.cap_ref_mut().try_ref_mut_as::<IrqControl>()?;
+            let _irq_control_cap = slot.cap_ref_mut().try_ref_mut_as::<IrqControl>()?;
             let irq_number = reg.a3;
             // 1: get irq stats and check whether already activated or.
             let dest_ptr = reg.a4;
             let dest_depth = reg.a5 as u32;
             let dest_slot = root_cnode.lookup_entry_mut(dest_ptr, dest_depth)?;
             dest_slot.is_none().then_some(()).ok_or(kerr!(ErrKind::NotEmptySlot))?;
-            // 2: set irq to global vars
-            // 3: activate plic irq level or edge trigger TODO
-            // 4: create irq cap and insert dest slot
+            activate_irq(irq_number)?;
+            let new_irq_handler = IrqHandlerCap::create(irq_number as u64);
+            let mut new_slot = CNodeEntry::new_with_rawcap(new_irq_handler.into());
+            new_slot.insert(slot);
+            *dest_slot = Some(new_slot);
             Ok(None)
         },
         CapabilityType::IrqHandler => {
-            let irq_handler_cap = slot.cap_ref_mut().try_ref_mut_as::<IrqControl>()?;
+            let irq_handler_cap = slot.cap_ref_mut().try_ref_mut_as::<IrqHandler>()?;
+            let irq_number = irq_handler_cap.get_irq_number();
             match inv_label {
                 InvLabel::IRQHandlerAck => {
-                    todo!()
+                /* QEMU has a bug where interrupts must be
+                 * immediately claimed, which is done in getActiveIRQ. For other
+                 * platforms, the claim can wait and be done here.
+                 */
+                    // plic_complete_claim(irq);
+                    Ok(None)
                 },
                 InvLabel::IRQHandlerSet => {
-                    todo!()
+                    let not_ptr = reg.a4;
+                    let not_depth = reg.a5 as u32;
+                    let not_slot = root_cnode.lookup_entry_mut(not_ptr, not_depth)?.as_mut().ok_or(kerr!(ErrKind::SlotIsEmpty))?.as_capability::<Notification>()?;
+                    set_irq(irq_number as usize, not_slot);
+                    Ok(None)
                 }
                 _ => Err(kerr!(ErrKind::UnknownInvocation)),
             }

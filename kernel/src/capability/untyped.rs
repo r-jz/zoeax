@@ -113,26 +113,26 @@ impl UntypedCap {
     ) -> KernelResult<()> {
         match new_type {
             CapabilityType::Tcb => {
-                self.retype_and_insert::<ThreadControlBlock>(mdb, dest_cnode, user_size, num)
+                self.dispatch_retype::<ThreadControlBlock>(mdb, dest_cnode, user_size, num)
             }
             CapabilityType::CNode => {
-                self.retype_and_insert::<CNode>(mdb, dest_cnode, user_size, num)
+                self.dispatch_retype::<CNode>(mdb, dest_cnode, user_size, num)
             }
             CapabilityType::EndPoint => {
-                self.retype_and_insert::<Endpoint>(mdb, dest_cnode, user_size, num)
+                self.dispatch_retype::<Endpoint>(mdb, dest_cnode, user_size, num)
             }
             CapabilityType::Notification => {
-                self.retype_and_insert::<Notification>(mdb, dest_cnode, user_size, num)
+                self.dispatch_retype::<Notification>(mdb, dest_cnode, user_size, num)
             }
             CapabilityType::PageTable => {
-                self.retype_and_insert::<PageTable>(mdb, dest_cnode, user_size, num)
+                self.dispatch_retype::<PageTable>(mdb, dest_cnode, user_size, num)
             }
-            CapabilityType::Page => self.retype_and_insert::<Page>(mdb, dest_cnode, user_size, num),
+            CapabilityType::Page => self.dispatch_retype::<Page>(mdb, dest_cnode, user_size, num),
             _ => Err(kerr!(ErrKind::UnknownCapType)),
         }
     }
 
-    fn retype_and_insert<K: KObject>(
+    fn dispatch_retype<K: KObject>(
         &mut self,
         src_slot: &mut ManagementDB,
         dest_cnode: &mut CNode,

@@ -1,6 +1,6 @@
 use crate::{
     address::{KernelVAddress, PhysAddr},
-    capability::{CapInSlot, Capability, CapabilityData, Something},
+    capability::{irq::{IrqControl, IrqHandler}, CapInSlot, Capability, CapabilityData, Something},
     common::KernelResult,
     CapabilityType,
 };
@@ -104,36 +104,26 @@ impl CNodeEntry<Something> {
         self.cap.get_cap_type()
     }
 
+    fn dispatch_derive<K>(&self) -> KernelResult<CapInSlot>
+        where 
+            K: KObject,
+            CapabilityData<K>: Capability
+    {
+        let cap = unsafe { self.cap.unchecked_ref_as::<K>() };
+        cap.derive(self).map(Into::into)
+    }
+
     pub fn derive(&self) -> KernelResult<CapInSlot> {
         match self.cap.get_cap_type()? {
-            CapabilityType::Tcb => {
-                let tcb = unsafe { self.cap.unchecked_ref_as::<ThreadControlBlock>() };
-                tcb.derive(self).map(Into::into)
-            }
-            CapabilityType::Untyped => {
-                let untyped = unsafe { self.cap.unchecked_ref_as::<Untyped>() };
-                untyped.derive(self).map(Into::into)
-            }
-            CapabilityType::CNode => {
-                let cnode = unsafe { self.cap.unchecked_ref_as::<CNode>() };
-                cnode.derive(self).map(Into::into)
-            }
-            CapabilityType::Notification => {
-                let noti = unsafe { self.cap.unchecked_ref_as::<Notification>() };
-                noti.derive(self).map(Into::into)
-            }
-            CapabilityType::EndPoint => {
-                let ep = unsafe { self.cap.unchecked_ref_as::<Endpoint>() };
-                ep.derive(self).map(Into::into)
-            }
-            CapabilityType::Page => {
-                let page = unsafe { self.cap.unchecked_ref_as::<Page>() };
-                page.derive(self).map(Into::into)
-            }
-            CapabilityType::PageTable => {
-                let page_table = unsafe { self.cap.unchecked_ref_as::<PageTable>() };
-                page_table.derive(self).map(Into::into)
-            }
+            CapabilityType::Tcb => self.dispatch_derive::<ThreadControlBlock>(),
+            CapabilityType::Untyped => self.dispatch_derive::<Untyped>(),
+            CapabilityType::CNode => self.dispatch_derive::<CNode>(),
+            CapabilityType::Notification => self.dispatch_derive::<Notification>(),
+            CapabilityType::EndPoint => self.dispatch_derive::<Endpoint>(),
+            CapabilityType::Page => self.dispatch_derive::<Page>(),
+            CapabilityType::PageTable => self.dispatch_derive::<PageTable>(),
+            CapabilityType::IrqControl => self.dispatch_derive::<IrqControl>(),
+            CapabilityType::IrqHandler => self.dispatch_derive::<IrqHandler>(),
         }
     }
 }

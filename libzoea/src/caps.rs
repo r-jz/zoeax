@@ -1,3 +1,5 @@
+use core::usize;
+
 use crate::{
     syscall::{
         cnode_copy, cnode_mint, configure_tcb, irq_control, irq_handler_ack, irq_handler_set, make_page_table_root, map_page, map_page_table, recv_ipc, recv_signal, resume_tcb, send_ipc, send_signal, set_ipc_buffer, unmap_page, untyped_retype, write_reg, SysCallFailed
@@ -13,7 +15,7 @@ pub trait KernelObject {
 }
 
 pub trait FromUntype: KernelObject {
-    fn from_untype(user_size: usize, is_device: bool) -> Self;
+    fn from_untype(user_size: usize, is_device: bool, phys_addr: usize) -> Self;
 }
 
 pub trait FixedSizeObject: FromUntype {
@@ -41,6 +43,7 @@ pub struct Capability<K: KernelObject> {
 pub struct Untyped {
     pub is_device: bool,
     pub size_bits: usize,
+    pub phys_addr: usize
 }
 
 impl KernelObject for Untyped {
@@ -48,10 +51,11 @@ impl KernelObject for Untyped {
 }
 
 impl FromUntype for Untyped {
-    fn from_untype(user_size: usize, is_device: bool) -> Self {
+    fn from_untype(user_size: usize, is_device: bool, phys_addr: usize) -> Self {
         Self {
             size_bits: user_size,
             is_device,
+            phys_addr
         }
     }
 }
@@ -71,7 +75,7 @@ impl KernelObject for CNode {
 }
 
 impl FromUntype for CNode {
-    fn from_untype(user_size: usize, _is_device: bool) -> Self {
+    fn from_untype(user_size: usize, _is_device: bool, _phys_addr: usize) -> Self {
         Self {
             radix: user_size as u32,
             cursor: 0,
@@ -91,7 +95,7 @@ impl KernelObject for PageTable {
 }
 
 impl FromUntype for PageTable {
-    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
+    fn from_untype(_user_size: usize, _is_device: bool, _phys_addr: usize) -> Self {
         Self {
             mapped_address: 0,
             is_root: false,
@@ -116,7 +120,8 @@ impl KernelObject for Page {
 }
 
 impl FromUntype for Page {
-    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
+    fn from_untype(_user_size: usize, _is_device: bool, _phys_addr: usize) -> Self {
+        // TODO: use phys_addr
         Self {
             mapped_address: 0,
             is_mapped: false,
@@ -142,7 +147,7 @@ impl KernelObject for Endpoint {
     const CAP_TYPE: CapabilityType = CapabilityType::EndPoint;
 }
 impl FromUntype for Endpoint {
-    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
+    fn from_untype(_user_size: usize, _is_device: bool, _phys_addr: usize) -> Self {
         Self {}
     }
 }
@@ -165,7 +170,7 @@ impl KernelObject for Notificaiton {
 }
 
 impl FromUntype for Notificaiton {
-    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
+    fn from_untype(_user_size: usize, _is_device: bool, _phys_addr: usize) -> Self {
         Self {}
     }
 }
@@ -193,7 +198,7 @@ impl KernelObject for ThreadControlBlock {
 }
 
 impl FromUntype for ThreadControlBlock {
-    fn from_untype(_user_size: usize, _is_device: bool) -> Self {
+    fn from_untype(_user_size: usize, _is_device: bool, _phys_addr: usize) -> Self {
         Self {}
     }
 }
@@ -232,6 +237,7 @@ impl UntypedCapability {
             cap_data: Untyped {
                 is_device: info.is_device,
                 size_bits: info.bits,
+                phys_addr: info.phys_addr
             },
         }
     }
@@ -252,7 +258,9 @@ impl UntypedCapability {
             num,
             T::CAP_TYPE,
         )?;
-        let new_c = T::from_untype(user_size, self.cap_data.is_device);
+        // TODO: phys addr is only for mmio untyped and page.
+        // Have to consider 
+        let new_c = T::from_untype(user_size, self.cap_data.is_device, self.cap_data.phys_addr);
         // We have to caluculate new cap postion.
         let (cap_ptr, cap_depth) = slot.get_cap_ptr();
         Ok(Capability {

@@ -39,6 +39,7 @@ pub struct UntypedInfo {
     pub bits: usize,
     pub idx: usize,
     pub is_device: bool,
+    pub phys_addr: usize
 }
 
 #[derive(Default, Debug)]
