@@ -22,12 +22,19 @@ boot:
 
 _abs_start:
     .option norelax
-	.cfi_startproc
-	.cfi_undefined ra
 
 .macro LA_FAR, reg, sym
-	lui \reg, %hi(\sym)
-	addi \reg, \reg, %lo(\sym)
+	.option push
+	.option norelax
+.Lla_\@:
+	auipc \reg, %pcrel_hi(.Lla_ptr_\@)
+	ld \reg, %pcrel_lo(.Lla_\@)(\reg)
+	j .Lla_end_\@
+	.align 3
+.Lla_ptr_\@:
+	.dword \sym
+.Lla_end_\@:
+	.option pop
 .endm
 
 .macro PPN, reg, pt
@@ -70,7 +77,7 @@ _abs_start:
 	slli \ppn, \ppn, 10
 	addi \ppn, \ppn, \flags
 
-	sw \ppn, 0(t0)
+	sd \ppn, 0(t0)
 .endm
 
 	csrw sie, 0
@@ -102,7 +109,9 @@ _abs_start:
 	slli t1, t1, 60
 	PPN t0, __page_kernel_level_3
 	or t0, t0, t1
+	sfence.vma x0, x0
 	csrw satp, t0
+	sfence.vma x0, x0
 
 
 
@@ -148,8 +157,6 @@ _abs_start:
 	/* jump to main in virtual addresses */
 	LA_FAR a4, _kernel_main
 	jalr zero, 0(a4)
-
-	.cfi_endproc
 
 .macro DEFINE_PAGE, name
 
