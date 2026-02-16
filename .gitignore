@@ -3,5 +3,5 @@ shell.bin*
 qemu.log
 .gdb_history
 ./*/*.map
-
+simple/user.map
 

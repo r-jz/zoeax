@@ -1,12 +1,14 @@
-#![allow(dead_code, unused_variables, static_mut_refs)]
+#![allow(dead_code, static_mut_refs)]
 
 use shared::err_kind::ErrKind;
 
 use crate::{
+    address::PhysAddr,
     kerr,
+    memlayout::PLIC,
     object::{CNodeEntry, CSlot, Notification},
     println,
-    riscv::r_sip,
+    riscv::{r_sip, SIP_STIP},
     KernelResult,
 };
 use core::mem::MaybeUninit;
@@ -34,15 +36,11 @@ pub enum IRQStatus {
 pub fn handle_irq_entry() {
     if let Ok(irq_reason) = get_active_irq() {
         match irq_reason {
-            IRQReason::Timer => {
-                todo!()
-            }
+            IRQReason::Timer => ack_irq(0),
             IRQReason::External(irq_num) => unsafe {
                 handle_irq(irq_num as usize);
             },
         }
-    } else {
-        todo!()
     }
 }
 
@@ -85,23 +83,19 @@ pub fn activate_irq(irq_number: usize) -> KernelResult<()> {
 
 pub fn set_irq(irq_number: usize, not_slot: &mut CNodeEntry<Notification>) {
     let irq_hander = unsafe { IRQ_NODES.assume_init_mut().get_mut(irq_number).unwrap() };
-    if irq_hander.is_some() {
-        todo!();
-        // remove handler
-    }
     let mut new_slot = CNodeEntry::new_with_rawcap(not_slot.cap_ref().replicate());
     new_slot.insert(not_slot);
     *irq_hander = Some(new_slot)
 }
 
 pub fn mask_interrupt(disable: bool, irq_number: usize) {
-    todo!()
+    plic_mask_irq(disable, irq_number)
 }
 
 pub unsafe fn init_irq_nodes() {
     // call only once
     let ptr = IRQ_NODES.as_mut_ptr().cast::<CSlot<Notification>>();
-    for pos in 0..MAX_IRQ + 1 {
+    for pos in 0..MAX_IRQ {
         *ptr.add(pos) = None
     }
 }
@@ -142,11 +136,12 @@ fn get_active_irq() -> KernelResult<IRQReason> {
 
 #[inline]
 fn is_external(sip_val: usize) -> bool {
-    todo!()
+    const SIP_SEIP: usize = 1 << 9;
+    (sip_val & SIP_SEIP) != 0
 }
 
 fn is_timer(sip_val: usize) -> bool {
-    todo!()
+    (sip_val & SIP_STIP) != 0
 }
 
 fn ack_irq(_irq_number: usize) {
@@ -155,11 +150,40 @@ fn ack_irq(_irq_number: usize) {
 }
 
 fn plic_get_irq() -> usize {
-    todo!()
+    unsafe { plic_sclaim_ptr().read_volatile() as usize }
 }
 fn plic_complete_claim(irq: usize) {
-    todo!()
+    unsafe {
+        plic_sclaim_ptr().write_volatile(irq as u32);
+    }
 }
-fn plic_mask_irq(irq: usize) {
-    todo!()
+fn plic_mask_irq(disable: bool, irq: usize) {
+    if irq == 0 {
+        return;
+    }
+    let bit = 1u32 << (irq % 32);
+    unsafe {
+        let enable_ptr = plic_senable_ptr(irq / 32);
+        let mut val = enable_ptr.read_volatile();
+        if disable {
+            val &= !bit;
+        } else {
+            val |= bit;
+        }
+        enable_ptr.write_volatile(val);
+    }
+}
+
+fn plic_senable_ptr(word_idx: usize) -> *mut u32 {
+    // S-mode enable base: PLIC + 0x2080 (+ hart * 0x100), hart=0.
+    let paddr = PhysAddr::from(PLIC + 0x2080 + word_idx * core::mem::size_of::<u32>());
+    let vaddr: *mut u32 = paddr.into();
+    vaddr
+}
+
+fn plic_sclaim_ptr() -> *mut u32 {
+    // S-mode claim/complete: PLIC + 0x201004 (+ hart * 0x2000), hart=0.
+    let paddr = PhysAddr::from(PLIC + 0x201004);
+    let vaddr: *mut u32 = paddr.into();
+    vaddr
 }
