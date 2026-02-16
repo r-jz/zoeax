@@ -53,3 +53,10 @@ run: build
 .PHONY: gdb
 gdb:
 	$(GDB) -q -ex "source ./gdbinit"
+
+.PHONY: test-smoke
+test-smoke:
+	./scripts/qemu_smoke.sh
+
+.PHONY: test
+test: test-smoke
