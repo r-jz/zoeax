@@ -4,7 +4,12 @@ use core::{
 };
 
 use crate::{
-    irq::handle_irq_entry, object::Registers, riscv::{r_scause, r_sepc, r_stval}, scheduler::{get_current_reg, get_current_tcb_mut, schedule, timer_tick, CpuVar}, syscall::handle_syscall, timer::set_timer
+    irq::handle_irq_entry,
+    object::Registers,
+    riscv::{r_scause, r_sepc, r_stval},
+    scheduler::{get_current_reg, get_current_tcb_mut, schedule, timer_tick, CpuVar},
+    syscall::handle_syscall,
+    timer::set_timer,
 };
 
 // I wanna use enum;

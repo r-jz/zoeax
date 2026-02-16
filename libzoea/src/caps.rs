@@ -1,8 +1,9 @@
-use core::usize;
-
 use crate::{
     syscall::{
-        cnode_copy, cnode_mint, configure_tcb, irq_control, irq_handler_ack, irq_handler_set, make_page_table_root, map_page, map_page_table, recv_ipc, recv_signal, resume_tcb, send_ipc, send_signal, set_ipc_buffer, unmap_page, untyped_retype, write_reg, SysCallFailed
+        cnode_copy, cnode_mint, configure_tcb, irq_control, irq_handler_ack, irq_handler_set,
+        make_page_table_root, map_page, map_page_table, recv_ipc, recv_signal, resume_tcb,
+        send_ipc, send_signal, set_ipc_buffer, unmap_page, untyped_retype, write_reg,
+        SysCallFailed,
     },
     IPCBuffer,
 };
@@ -43,7 +44,7 @@ pub struct Capability<K: KernelObject> {
 pub struct Untyped {
     pub is_device: bool,
     pub size_bits: usize,
-    pub phys_addr: usize
+    pub phys_addr: usize,
 }
 
 impl KernelObject for Untyped {
@@ -55,7 +56,7 @@ impl FromUntype for Untyped {
         Self {
             size_bits: user_size,
             is_device,
-            phys_addr
+            phys_addr,
         }
     }
 }
@@ -211,7 +212,7 @@ impl FixedSizeObject for ThreadControlBlock {
 #[derive(Debug, Default)]
 pub struct IRQControl {
     // bit_map
-    irqs_status: usize
+    irqs_status: usize,
 }
 
 impl KernelObject for IRQControl {
@@ -219,7 +220,8 @@ impl KernelObject for IRQControl {
 }
 
 pub struct IRQHandler {
-    irq_number: usize
+    #[allow(dead_code)]
+    irq_number: usize,
 }
 
 impl KernelObject for IRQHandler {
@@ -237,7 +239,7 @@ impl UntypedCapability {
             cap_data: Untyped {
                 is_device: info.is_device,
                 size_bits: info.bits,
-                phys_addr: info.phys_addr
+                phys_addr: info.phys_addr,
             },
         }
     }
@@ -259,7 +261,7 @@ impl UntypedCapability {
             T::CAP_TYPE,
         )?;
         // TODO: phys addr is only for mmio untyped and page.
-        // Have to consider 
+        // Have to consider
         let new_c = T::from_untype(user_size, self.cap_data.is_device, self.cap_data.phys_addr);
         // We have to caluculate new cap postion.
         let (cap_ptr, cap_depth) = slot.get_cap_ptr();
@@ -575,23 +577,35 @@ impl NotificaitonCapability {
 pub type IRQControlCapability = Capability<IRQControl>;
 
 impl IRQControlCapability {
-    pub fn control(&mut self, irq_number: usize, slot: &mut CSlot) -> Result<IRQHandlerCapabilitry, SysCallFailed> {
+    pub fn control(
+        &mut self,
+        irq_number: usize,
+        slot: &mut CSlot,
+    ) -> Result<IRQHandlerCapabilitry, SysCallFailed> {
         // TODO: because of bitmap
-        (irq_number < 64).then_some(()).ok_or((ErrKind::InvalidOperation, 0))?;
-        ((self.cap_data.irqs_status & irq_number) == 0).then_some(()).ok_or((ErrKind::InvalidOperation, 0))?;
+        (irq_number < 64)
+            .then_some(())
+            .ok_or((ErrKind::InvalidOperation, 0))?;
+        ((self.cap_data.irqs_status & irq_number) == 0)
+            .then_some(())
+            .ok_or((ErrKind::InvalidOperation, 0))?;
         let (dest_ptr, dest_depth) = slot.get_cap_ptr();
-        irq_control(self.cap_ptr, self.cap_depth, irq_number, dest_ptr, dest_depth)?;
+        irq_control(
+            self.cap_ptr,
+            self.cap_depth,
+            irq_number,
+            dest_ptr,
+            dest_depth,
+        )?;
         self.cap_data.irqs_status |= irq_number;
         let irq_hadler = IRQHandlerCapabilitry {
             cap_ptr: dest_ptr,
             cap_depth: dest_depth,
-            cap_data: IRQHandler { irq_number }
+            cap_data: IRQHandler { irq_number },
         };
         Ok(irq_hadler)
-
     }
 }
-
 
 pub type IRQHandlerCapabilitry = Capability<IRQHandler>;
 

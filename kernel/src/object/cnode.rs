@@ -1,6 +1,9 @@
 use crate::{
     address::{KernelVAddress, PhysAddr},
-    capability::{irq::{IrqControl, IrqHandler}, CapInSlot, Capability, CapabilityData, Something},
+    capability::{
+        irq::{IrqControl, IrqHandler},
+        CapInSlot, Capability, CapabilityData, Something,
+    },
     common::KernelResult,
     CapabilityType,
 };
@@ -105,9 +108,9 @@ impl CNodeEntry<Something> {
     }
 
     fn dispatch_derive<K>(&self) -> KernelResult<CapInSlot>
-        where 
-            K: KObject,
-            CapabilityData<K>: Capability
+    where
+        K: KObject,
+        CapabilityData<K>: Capability,
     {
         let cap = unsafe { self.cap.unchecked_ref_as::<K>() };
         cap.derive(self).map(Into::into)

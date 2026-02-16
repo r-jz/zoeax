@@ -1,9 +1,17 @@
+#![allow(dead_code, unused_variables, static_mut_refs)]
+
 use shared::err_kind::ErrKind;
 
-use crate::{kerr, object::{CNodeEntry, CSlot, Notification}, println, riscv::r_sip, KernelResult};
+use crate::{
+    kerr,
+    object::{CNodeEntry, CSlot, Notification},
+    println,
+    riscv::r_sip,
+    KernelResult,
+};
 use core::mem::MaybeUninit;
 
-const MAX_IRQ: usize = 128; 
+const MAX_IRQ: usize = 128;
 
 // TODO: Have to think why they are separanted.
 static mut IRQ_STATS: [IRQStatus; MAX_IRQ] = [IRQStatus::Inactive; MAX_IRQ];
@@ -14,7 +22,7 @@ static mut CURRENT_IRQ: Option<IRQReason> = None;
 #[derive(Clone, Copy, Debug)]
 enum IRQReason {
     Timer,
-    External(u8)
+    External(u8),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,12 +36,10 @@ pub fn handle_irq_entry() {
         match irq_reason {
             IRQReason::Timer => {
                 todo!()
-            },
-            IRQReason::External(irq_num) => {
-                unsafe {
-                    handle_irq(irq_num as usize);
-                }
             }
+            IRQReason::External(irq_num) => unsafe {
+                handle_irq(irq_num as usize);
+            },
         }
     } else {
         todo!()
@@ -42,13 +48,16 @@ pub fn handle_irq_entry() {
 
 unsafe fn handle_irq(irq_num: usize) {
     match IRQ_STATS.get(irq_num) {
-            // exceed max irq number
+        // exceed max irq number
         None => mask_interrupt(true, irq_num),
-        Some(IRQStatus::Inactive) => {
-            mask_interrupt(true, irq_num)
-        },
+        Some(IRQStatus::Inactive) => mask_interrupt(true, irq_num),
         Some(IRQStatus::IrqSignal) => {
-            if let Some(not_cap) = IRQ_NODES.assume_init_mut().get_mut(irq_num).unwrap().as_mut() {
+            if let Some(not_cap) = IRQ_NODES
+                .assume_init_mut()
+                .get_mut(irq_num)
+                .unwrap()
+                .as_mut()
+            {
                 not_cap.cap_ref_mut().send();
             } else {
                 println!("no notification cap is set.");
@@ -62,18 +71,20 @@ unsafe fn handle_irq(irq_num: usize) {
 
 pub fn activate_irq(irq_number: usize) -> KernelResult<()> {
     let irq_status = unsafe {
-        IRQ_STATS.get_mut(irq_number).ok_or(kerr!(ErrKind::UnknownIRQ))?
+        IRQ_STATS
+            .get_mut(irq_number)
+            .ok_or(kerr!(ErrKind::UnknownIRQ))?
     };
-    (!(irq_status == &mut IRQStatus::IrqSignal)).then_some(()).ok_or(kerr!(ErrKind::IRQAlreadyActive))?;
+    (!(irq_status == &mut IRQStatus::IrqSignal))
+        .then_some(())
+        .ok_or(kerr!(ErrKind::IRQAlreadyActive))?;
     mask_interrupt(false, irq_number);
     *irq_status = IRQStatus::IrqSignal;
     Ok(())
 }
 
 pub fn set_irq(irq_number: usize, not_slot: &mut CNodeEntry<Notification>) {
-    let irq_hander = unsafe {
-        IRQ_NODES.assume_init_mut().get_mut(irq_number).unwrap()
-    };
+    let irq_hander = unsafe { IRQ_NODES.assume_init_mut().get_mut(irq_number).unwrap() };
     if irq_hander.is_some() {
         todo!();
         // remove handler
@@ -140,12 +151,12 @@ fn is_timer(sip_val: usize) -> bool {
 
 fn ack_irq(_irq_number: usize) {
     // check irq number is collect
-    unsafe {
-        CURRENT_IRQ = None
-    }
+    unsafe { CURRENT_IRQ = None }
 }
 
-fn plic_get_irq() -> usize {todo!()}
+fn plic_get_irq() -> usize {
+    todo!()
+}
 fn plic_complete_claim(irq: usize) {
     todo!()
 }

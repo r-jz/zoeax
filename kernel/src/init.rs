@@ -11,11 +11,11 @@ mod pm;
 mod root_server;
 mod vm;
 
-use crate::trap::trap_entry;
 use crate::println;
 use crate::riscv::{r_sie, w_sie, w_sscratch, w_stvec, SIE_SEIE, SIE_SSIE, SIE_STIE};
 use crate::scheduler::cpu_var_ptr;
 use crate::timer::{set_timer, MTIME_PER_1MS};
+use crate::trap::trap_entry;
 use pm::BumpAllocator;
 use root_server::{set_device_memory, RootServerMemory, RootServerResourceManager};
 use vm::kernel_vm_init;
@@ -35,7 +35,6 @@ pub fn init_kernel(elf_header: *const Elf64Hdr, free_ram_phys: usize, free_ram_e
     set_timer(MTIME_PER_1MS);
     println!("initialization finished");
 }
-
 
 fn create_initial_thread(
     root_server_mem: &mut RootServerMemory,
@@ -90,7 +89,7 @@ fn create_initial_thread(
             bits: untyped_cap.block_size(),
             idx: untyped_cap_idx,
             is_device: false,
-            phys_addr: untyped_cap.get_address().into()
+            phys_addr: untyped_cap.get_address().into(),
         };
         num += 1;
         boot_info.firtst_empty_idx = untyped_cap_idx + 1;

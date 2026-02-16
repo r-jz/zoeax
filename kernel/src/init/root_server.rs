@@ -3,9 +3,9 @@ use shared::elf::def::{Elf64Hdr, ProgramFlags};
 use shared::elf::ProgramMapper;
 use shared::types::{BootInfo, UntypedInfo};
 
-use crate::address::{KernelVAddress, PhysAddr};
 use crate::address::VirtAddr;
 use crate::address::PAGE_SIZE;
+use crate::address::{KernelVAddress, PhysAddr};
 use crate::capability::cnode::CNodeCap;
 use crate::capability::irq::IrqControlCap;
 use crate::capability::page_table::PageCap;

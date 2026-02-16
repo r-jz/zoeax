@@ -376,7 +376,13 @@ pub fn recv_ipc(cap_ptr: usize, cap_depth: u32) -> SysCallRes {
     }
 }
 
-pub fn irq_control(cap_ptr: usize, cap_depth: u32, irq_number: usize, dest_ptr: usize, dest_depth: u32) -> SysCallRes {
+pub fn irq_control(
+    cap_ptr: usize,
+    cap_depth: u32,
+    irq_number: usize,
+    dest_ptr: usize,
+    dest_depth: u32,
+) -> SysCallRes {
     unsafe {
         syscall(
             cap_ptr,
@@ -386,19 +392,42 @@ pub fn irq_control(cap_ptr: usize, cap_depth: u32, irq_number: usize, dest_ptr: 
             dest_ptr,
             dest_depth as usize,
             0,
-            SysCallNo::Call
+            SysCallNo::Call,
         )
     }
 }
 
 pub fn irq_handler_ack(cap_ptr: usize, cap_depth: u32) -> SysCallRes {
     unsafe {
-        syscall(cap_ptr, cap_depth, InvLabel::IRQHandlerAck, 0, 0, 0, 0, SysCallNo::Call)
+        syscall(
+            cap_ptr,
+            cap_depth,
+            InvLabel::IRQHandlerAck,
+            0,
+            0,
+            0,
+            0,
+            SysCallNo::Call,
+        )
     }
 }
 
-pub fn irq_handler_set(cap_ptr: usize, cap_depth: u32, not_cap_ptr: usize, not_cap_depth: u32) -> SysCallRes {
+pub fn irq_handler_set(
+    cap_ptr: usize,
+    cap_depth: u32,
+    not_cap_ptr: usize,
+    not_cap_depth: u32,
+) -> SysCallRes {
     unsafe {
-        syscall(cap_ptr, cap_depth, InvLabel::IRQHandlerSet, not_cap_ptr, not_cap_depth as usize, 0, 0, SysCallNo::Call)
+        syscall(
+            cap_ptr,
+            cap_depth,
+            InvLabel::IRQHandlerSet,
+            not_cap_ptr,
+            not_cap_depth as usize,
+            0,
+            0,
+            SysCallNo::Call,
+        )
     }
 }

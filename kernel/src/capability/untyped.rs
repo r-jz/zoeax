@@ -115,9 +115,7 @@ impl UntypedCap {
             CapabilityType::Tcb => {
                 self.dispatch_retype::<ThreadControlBlock>(mdb, dest_cnode, user_size, num)
             }
-            CapabilityType::CNode => {
-                self.dispatch_retype::<CNode>(mdb, dest_cnode, user_size, num)
-            }
+            CapabilityType::CNode => self.dispatch_retype::<CNode>(mdb, dest_cnode, user_size, num),
             CapabilityType::EndPoint => {
                 self.dispatch_retype::<Endpoint>(mdb, dest_cnode, user_size, num)
             }
