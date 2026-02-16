@@ -11,13 +11,13 @@ mod pm;
 mod root_server;
 mod vm;
 
-use crate::handler::trap_entry;
 use crate::println;
 use crate::riscv::{r_sie, w_sie, w_sscratch, w_stvec, SIE_SEIE, SIE_SSIE, SIE_STIE};
 use crate::scheduler::cpu_var_ptr;
 use crate::timer::{set_timer, MTIME_PER_1MS};
+use crate::trap::trap_entry;
 use pm::BumpAllocator;
-use root_server::{RootServerMemory, RootServerResourceManager};
+use root_server::{set_device_memory, RootServerMemory, RootServerResourceManager};
 use vm::kernel_vm_init;
 
 extern "C" {
@@ -38,32 +38,31 @@ pub fn init_kernel(elf_header: *const Elf64Hdr, free_ram_phys: usize, free_ram_e
 
 fn create_initial_thread(
     root_server_mem: &mut RootServerMemory,
-    mut bootstage_mbr: RootServerResourceManager,
+    mut bootrsc_mgr: RootServerResourceManager,
     elf_header: *const Elf64Hdr,
 ) {
-    // 8, call return_to_user(after returning user, to clear stack)
-    // 1, create root cnode and insert self cap into self(root cnode)
     let mut root_cnode_cap = root_server_mem.create_root_cnode();
-    // 2, create vm space for root server,
+
     let (mut vspace_cap, max_vaddr) =
-        root_server_mem.create_address_space(&mut root_cnode_cap, elf_header, &mut bootstage_mbr);
-    // 3, create ipc buffer frame
+        root_server_mem.create_address_space(&mut root_cnode_cap, elf_header, &mut bootrsc_mgr);
+
+    root_server_mem.create_irqs(&mut root_cnode_cap);
+
     let mut ipc_page_cap = root_server_mem.create_ipc_buf_frame(
         &mut root_cnode_cap,
         &mut vspace_cap,
         max_vaddr,
-        &mut bootstage_mbr,
+        &mut bootrsc_mgr,
     );
 
     let (_, boot_info_addr) = root_server_mem.create_boot_info_frame(
         &mut root_cnode_cap,
         &mut vspace_cap,
         max_vaddr.add(PAGE_SIZE),
-        &mut bootstage_mbr,
+        &mut bootrsc_mgr,
     );
-    // 4, create idle thread
+
     create_idle_thread(&raw const __stack_top as usize);
-    // 5, create root server tcb,
     let boot_info_ptr: *mut BootInfo = boot_info_addr.into();
     let boot_info = unsafe {
         *boot_info_ptr = BootInfo::default();
@@ -80,7 +79,8 @@ fn create_initial_thread(
 
     // 6, convert rest of memory into untyped objects.
     let mut num = 0;
-    for (idx, (untyped_cap_idx, untyped_cap)) in bootstage_mbr.finalize().enumerate() {
+    let mut max_idx = 0;
+    for (idx, (untyped_cap_idx, untyped_cap)) in bootrsc_mgr.finalize().enumerate() {
         assert!(num < 32);
         root_cnode_cap
             .write_slot(untyped_cap.replicate(), untyped_cap_idx)
@@ -89,14 +89,19 @@ fn create_initial_thread(
             bits: untyped_cap.block_size(),
             idx: untyped_cap_idx,
             is_device: false,
+            phys_addr: untyped_cap.get_address().into(),
         };
         num += 1;
         boot_info.firtst_empty_idx = untyped_cap_idx + 1;
+        max_idx = idx;
     }
+
+    // dirty hacking function
     boot_info.untyped_num = num;
     for (i, ch) in "hello, root_server\n".as_bytes().iter().enumerate() {
         boot_info.msg[i] = *ch;
     }
+    set_device_memory(&mut root_cnode_cap, boot_info, max_idx + 1);
     boot_info.root_cnode_idx = ROOT_CNODE_IDX;
     boot_info.root_vspace_idx = ROOT_VSPACE_IDX;
     boot_info.ipc_buffer_addr = max_vaddr.add(PAGE_SIZE).into();

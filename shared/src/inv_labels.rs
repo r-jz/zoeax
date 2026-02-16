@@ -22,6 +22,9 @@ pub enum InvLabel {
     PageTableMakeRoot,
     EpSend,
     EpRecv,
+    IRQControl,
+    IRQHandlerAck,
+    IRQHandlerSet,
 }
 
 impl TryFrom<usize> for InvLabel {
@@ -47,6 +50,9 @@ impl TryFrom<usize> for InvLabel {
             inv if inv == Self::PageTableMakeRoot as usize => Ok(Self::PageTableMakeRoot),
             inv if inv == Self::EpSend as usize => Ok(Self::EpSend),
             inv if inv == Self::EpRecv as usize => Ok(Self::EpRecv),
+            inv if inv == Self::IRQControl as usize => Ok(Self::IRQControl),
+            inv if inv == Self::IRQHandlerAck as usize => Ok(Self::IRQHandlerAck),
+            inv if inv == Self::IRQHandlerSet as usize => Ok(Self::IRQHandlerSet),
             _ => Err(ErrKind::UnknownInvocation),
         }
     }

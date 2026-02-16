@@ -13,6 +13,7 @@ use core::{marker::PhantomData, num::NonZeroU8};
 
 pub mod cnode;
 pub mod endpoint;
+pub mod irq;
 pub mod notification;
 pub mod page_table;
 pub mod tcb;
