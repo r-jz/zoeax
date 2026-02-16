@@ -47,7 +47,8 @@ fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
     let mut root_vspace = get_root_vspace(boot_info);
     println!("boot info: {:x?}", boot_info);
     let mut child_slot = root_cnode.get_slot()?;
-    let mut child_tcb = untyped.retype_single_with_fixed_size::<ThreadControlBlock>(&mut child_slot)?;
+    let mut child_tcb =
+        untyped.retype_single_with_fixed_size::<ThreadControlBlock>(&mut child_slot)?;
     let mut notify_slot = root_cnode.get_slot()?;
     let notify = untyped.retype_single_with_fixed_size::<Notificaiton>(&mut notify_slot)?;
 
@@ -57,7 +58,8 @@ fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
     let mut page_slot = root_cnode.get_slot()?;
     let mut page = untyped.retype_single_with_fixed_size::<Page>(&mut page_slot)?;
     let mut page_table_slot = root_cnode.get_slot()?;
-    let mut page_table = untyped.retype_single_with_fixed_size::<PageTable>(&mut page_table_slot)?;
+    let mut page_table =
+        untyped.retype_single_with_fixed_size::<PageTable>(&mut page_table_slot)?;
     let mut endpoint_slot = root_cnode.get_slot()?;
     let endpoint = untyped.retype_single_with_fixed_size::<Endpoint>(&mut endpoint_slot)?;
 
@@ -90,7 +92,8 @@ fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
     let (mut lv2_cnode, mut untyped, mut root_vspace_for_new_proc) = elf_mapper.finalize();
 
     let mut new_proc_slot = lv2_cnode.get_slot()?;
-    let mut new_proc = untyped.retype_single_with_fixed_size::<ThreadControlBlock>(&mut new_proc_slot)?;
+    let mut new_proc =
+        untyped.retype_single_with_fixed_size::<ThreadControlBlock>(&mut new_proc_slot)?;
 
     // test copy into lv2
     let _copied_notiry = lv2_cnode.copy::<Notificaiton>(&notify)?;
@@ -106,7 +109,7 @@ fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
     child_tcb.write_regs(
         || Registers {
             sp: sp_val,
-            sepc: children as usize,
+            sepc: children as *const () as usize,
             a0: minted_not_1.cap_ptr,
             a1: minted_not_1.cap_depth as usize,
             a2: minted_ep.cap_ptr,

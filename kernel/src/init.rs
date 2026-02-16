@@ -26,7 +26,7 @@ extern "C" {
 
 pub fn init_kernel(elf_header: *const Elf64Hdr, free_ram_phys: usize, free_ram_end_phys: usize) {
     println!("initialising kernel");
-    w_stvec(trap_entry as usize);
+    w_stvec(trap_entry as *const () as usize);
     let bump_allocator = unsafe { BumpAllocator::new(free_ram_phys, free_ram_end_phys) };
     unsafe { kernel_vm_init(free_ram_end_phys) };
     w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);

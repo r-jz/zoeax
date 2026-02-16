@@ -82,7 +82,7 @@ pub unsafe fn schedule() {
 
 pub fn create_idle_thread(stack_top: usize) {
     unsafe {
-        IDLE_THREAD.registers.sepc = idle as usize;
+        IDLE_THREAD.registers.sepc = idle as *const () as usize;
         IDLE_THREAD.registers.sstatus = SSTATUS_SPP | SSTATUS_SPIE;
         IDLE_THREAD.registers.sp = stack_top;
         CURRENT_PROC = &raw mut IDLE_THREAD;

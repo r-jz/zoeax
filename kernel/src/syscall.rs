@@ -28,8 +28,10 @@ pub fn handle_syscall(syscall_n: usize, reg: &mut Registers) {
                     Ok(None)
                 }
                 InvLabel::CNodeTraverse => {
-                    if let Some(root_cnode) =
-                        get_current_tcb_mut().root_cnode.as_ref().map(|slot| slot.cap_ref())
+                    if let Some(root_cnode) = get_current_tcb_mut()
+                        .root_cnode
+                        .as_ref()
+                        .map(|slot| slot.cap_ref())
                     {
                         root_cnode.print_traverse();
                         Ok(None)

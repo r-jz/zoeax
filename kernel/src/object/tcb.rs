@@ -87,6 +87,7 @@ impl ThreadInfo {
         }
     }
 
+    #[allow(clippy::mut_from_ref)]
     pub fn ipc_buffer_ref(&self) -> Option<&mut IPCBuffer> {
         self.ipc_buffer.as_ref().map(|page_cap_e| {
             let page_cap = page_cap_e.cap_ref();

@@ -43,7 +43,7 @@ macro_rules! const_assert {
 }
 
 pub fn is_aligned(value: usize, align: usize) -> bool {
-    value % align == 0
+    value.is_multiple_of(align)
 }
 
 /// align should be power of 2.
