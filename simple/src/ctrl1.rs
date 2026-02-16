@@ -31,5 +31,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 fn exit() -> ! {
-    loop {}
+    loop {
+        core::hint::spin_loop();
+    }
 }

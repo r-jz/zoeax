@@ -36,11 +36,11 @@ simple_elf := $(BUILD_DIR)/simple
 
 .PHONY: build
 build:
-	pushd simple && cargo build $(CARGO_FLAGS) && popd
+	cd simple && cargo build $(CARGO_FLAGS)
 	cp $(simple_elf) rootserver/simple
-	pushd rootserver && cargo build $(CARGO_FLAGS) && popd
+	cd rootserver && cargo build $(CARGO_FLAGS)
 	cp $(rootserver_elf) kernel/rootserver
-	pushd kernel && cargo build $(CARGO_FLAGS) && popd
+	cd kernel && cargo build $(CARGO_FLAGS)
 
 .PHONY: clean
 clean:
