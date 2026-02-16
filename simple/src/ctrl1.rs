@@ -31,5 +31,5 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 fn exit() -> ! {
-    panic!("exit")
+    loop {}
 }

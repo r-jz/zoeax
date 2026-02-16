@@ -13,11 +13,11 @@ use crate::capability::untyped::UntypedCap;
 use crate::capability::Capability;
 use crate::common::{align_up, ErrKind};
 use crate::object::page_table::{Page, PAGE_R, PAGE_U, PAGE_W, PAGE_X};
+use crate::object::CNode;
 use crate::object::CNodeEntry;
 use crate::object::PageTable;
 use crate::object::ThreadControlBlock;
 use crate::object::ThreadInfo;
-use crate::object::CNode;
 
 use crate::riscv::SSTATUS_SPIE;
 use crate::KernelError;
@@ -78,7 +78,9 @@ impl<'a> RootServerMemory<'a> {
         let cap_type = CNodeCap::CAP_TYPE;
         let cap = CNodeCap::new(cap_type, vaddr.into(), cap_dep_val as u64);
         let mut cnode_cap = cap.replicate();
-        cnode_cap.write_slot(cap.replicate(), ROOT_CNODE_IDX).unwrap();
+        cnode_cap
+            .write_slot(cap.replicate(), ROOT_CNODE_IDX)
+            .unwrap();
         cap
     }
 
@@ -94,7 +96,9 @@ impl<'a> RootServerMemory<'a> {
         let vaddr = (root_page_table as *const PageTable).into();
         let mut cap = PageTableCap::init(vaddr, 0);
         cap.make_as_root().unwrap();
-        cnode_cap.write_slot(cap.replicate(), ROOT_VSPACE_IDX).unwrap();
+        cnode_cap
+            .write_slot(cap.replicate(), ROOT_VSPACE_IDX)
+            .unwrap();
         let mut mapper = RootServerElfMapper::new(root_rsc_mgr, &mut cap, cnode_cap);
         unsafe {
             (*elf_header).map_self(&mut mapper).unwrap();

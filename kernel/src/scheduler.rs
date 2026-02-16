@@ -1,5 +1,5 @@
-use crate::list::{LinkedList, ListItem};
 use crate::common::SyncUnsafeCell;
+use crate::list::{LinkedList, ListItem};
 use crate::object::{Registers, ThreadControlBlock, ThreadInfo};
 use crate::println;
 use crate::riscv::{r_sstatus, w_sstatus, wfi, SSTATUS_SIE, SSTATUS_SPIE, SSTATUS_SPP};
@@ -55,7 +55,10 @@ pub unsafe fn schedule() {
     if !scheduler.requested {
         return;
     }
-    let next = if let Some(next) = scheduler.sched().map(|next| next as *mut ThreadControlBlock) {
+    let next = if let Some(next) = scheduler
+        .sched()
+        .map(|next| next as *mut ThreadControlBlock)
+    {
         let next = unsafe { &mut *next };
         next.set_timeout(TASK_QUANTUM);
         let current = CURRENT_PROC.load(Ordering::Relaxed);

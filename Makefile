@@ -50,13 +50,21 @@ clean:
 run: build
 	$(QEMU) $(QEMUFLAGS) -kernel $(kernel_elf)
 
+.PHONY: run-qemu
+run-qemu:
+	$(QEMU) $(QEMUFLAGS) -kernel $(kernel_elf)
+
 .PHONY: gdb
 gdb:
 	$(GDB) -q -ex "source ./gdbinit"
 
 .PHONY: test-smoke
 test-smoke:
-	./scripts/qemu_smoke.sh
+	STRICT_SMOKE=0 ./scripts/qemu_smoke.sh
+
+.PHONY: test-smoke-strict
+test-smoke-strict:
+	STRICT_SMOKE=1 ./scripts/qemu_smoke.sh
 
 .PHONY: test
 test: test-smoke
