@@ -36,8 +36,11 @@ fn new_proc_elf() -> Result<&'static Elf64Hdr, SysCallFailed> {
 #[no_mangle]
 pub fn main(boot_info: &BootInfo) {
     if let Err(e) = try_main(boot_info) {
+        println!("[TEST][FAIL] ROOTSERVER_MAIN: {e:?}");
         println!("rootserver failed: {e:?}");
+        return;
     }
+    println!("[TEST][PASS] ROOTSERVER_DONE");
 }
 
 fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
@@ -88,6 +91,7 @@ fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
     let new_proc_elf = new_proc_elf()?;
     let new_entry = new_proc_elf.e_entry;
     new_proc_elf.map_self(&mut elf_mapper)?;
+    println!("[TEST][PASS] ROOTSERVER_MAPPED_SIMPLE");
     println!("mapping was done");
     let (mut lv2_cnode, mut untyped, mut root_vspace_for_new_proc) = elf_mapper.finalize();
 
@@ -143,6 +147,7 @@ fn try_main(boot_info: &BootInfo) -> Result<(), SysCallFailed> {
         boot_info.ipc_buffer(),
     )?;
     new_proc.resume()?;
+    println!("[TEST][PASS] ROOTSERVER_RESUMED_SIMPLE");
     Ok(())
 }
 
@@ -183,4 +188,5 @@ fn children(not_cptr: usize, not_depth: u32, ep_ptr: usize, ep_depth: u32) {
         return;
     }
     println!("child: send done");
+    loop {}
 }

@@ -36,11 +36,11 @@ simple_elf := $(BUILD_DIR)/simple
 
 .PHONY: build
 build:
-	pushd simple && cargo build $(CARGO_FLAGS) && popd
+	cd simple && cargo build $(CARGO_FLAGS)
 	cp $(simple_elf) rootserver/simple
-	pushd rootserver && cargo build $(CARGO_FLAGS) && popd
+	cd rootserver && cargo build $(CARGO_FLAGS)
 	cp $(rootserver_elf) kernel/rootserver
-	pushd kernel && cargo build $(CARGO_FLAGS) && popd
+	cd kernel && cargo build $(CARGO_FLAGS)
 
 .PHONY: clean
 clean:
@@ -50,13 +50,21 @@ clean:
 run: build
 	$(QEMU) $(QEMUFLAGS) -kernel $(kernel_elf)
 
+.PHONY: run-qemu
+run-qemu:
+	$(QEMU) $(QEMUFLAGS) -kernel $(kernel_elf)
+
 .PHONY: gdb
 gdb:
 	$(GDB) -q -ex "source ./gdbinit"
 
 .PHONY: test-smoke
 test-smoke:
-	./scripts/qemu_smoke.sh
+	STRICT_SMOKE=0 ./scripts/qemu_smoke.sh
+
+.PHONY: test-smoke-strict
+test-smoke-strict:
+	STRICT_SMOKE=1 ./scripts/qemu_smoke.sh
 
 .PHONY: test
 test: test-smoke

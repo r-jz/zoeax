@@ -14,7 +14,7 @@ mod vm;
 use crate::handler::trap_entry;
 use crate::println;
 use crate::riscv::{r_sie, w_sie, w_sscratch, w_stvec, SIE_SEIE, SIE_SSIE, SIE_STIE};
-use crate::scheduler::CPU_VAR;
+use crate::scheduler::cpu_var_ptr;
 use crate::timer::{set_timer, MTIME_PER_1MS};
 use pm::BumpAllocator;
 use root_server::{RootServerMemory, RootServerResourceManager};
@@ -31,7 +31,7 @@ pub fn init_kernel(elf_header: *const Elf64Hdr, free_ram_phys: usize, free_ram_e
     unsafe { kernel_vm_init(free_ram_end_phys) };
     w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
     init_root_server(bump_allocator, elf_header);
-    w_sscratch(&raw const CPU_VAR as usize);
+    w_sscratch(cpu_var_ptr());
     set_timer(MTIME_PER_1MS);
     println!("initialization finished");
 }
@@ -82,7 +82,9 @@ fn create_initial_thread(
     let mut num = 0;
     for (idx, (untyped_cap_idx, untyped_cap)) in bootstage_mbr.finalize().enumerate() {
         assert!(num < 32);
-        root_cnode_cap.write_slot(untyped_cap.replicate(), untyped_cap_idx);
+        root_cnode_cap
+            .write_slot(untyped_cap.replicate(), untyped_cap_idx)
+            .unwrap();
         boot_info.untyped_infos[idx] = UntypedInfo {
             bits: untyped_cap.block_size(),
             idx: untyped_cap_idx,
