@@ -53,3 +53,22 @@ jobs:
           cp stub.elf kernel/rootserver
       - name: Cargo clippy
         run: cargo clippy -- -D warnings
+
+  smoke:
+    name: QEMU Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-misc
+      - name: Add component
+        run: |
+          rustup set profile minimal
+          rustup install nightly
+          rustup target add riscv64gc-unknown-none-elf
+          rustup override set nightly
+      - name: Run smoke test
+        run: make test-smoke

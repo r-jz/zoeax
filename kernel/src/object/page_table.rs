@@ -25,7 +25,7 @@ page table entry
 
 use crate::{
     address::{KernelVAddress, PhysAddr, VirtAddr, PAGE_SIZE},
-    common::{ErrKind, KernelResult},
+    common::{ErrKind, KernelResult, SyncUnsafeCell},
     kerr,
     memlayout::KERNEL_CODE_PFX,
 };
@@ -50,9 +50,8 @@ pub const PAGE_W: usize = 1 << 2;
 pub const PAGE_X: usize = 1 << 3;
 pub const PAGE_U: usize = 1 << 4;
 
-// TODO: use once cell
-pub static mut KERNEL_VM_ROOT: PageTable = PageTable::new();
-pub static mut LV2TABLE: PageTable = PageTable::new();
+static KERNEL_VM_ROOT: SyncUnsafeCell<PageTable> = SyncUnsafeCell::new(PageTable::new());
+static LV2TABLE: SyncUnsafeCell<PageTable> = SyncUnsafeCell::new(PageTable::new());
 
 // page table lv1(bottom) has 512 * 4kb page = 2048kb
 // page table lv2(middle) has 512 * lv1 table = 512 * 2048kb
@@ -106,13 +105,13 @@ impl PageTable {
     pub fn copy_global_mapping(&mut self) {
         let self_addr = self as *mut PageTable as *mut u8;
         unsafe {
-            let k_root = &raw const KERNEL_VM_ROOT as *const u8;
+            let k_root = KERNEL_VM_ROOT.get() as *const u8;
             ptr::copy::<u8>(k_root, self_addr, PAGE_SIZE);
         };
     }
 
     pub unsafe fn activate_kernel_table() {
-        let address = (&raw const KERNEL_VM_ROOT as *const _ as usize) & !KERNEL_CODE_PFX;
+        let address = (KERNEL_VM_ROOT.get() as usize) & !KERNEL_CODE_PFX;
         unsafe {
             asm!(
                 "sfence.vma x0, x0",
@@ -122,6 +121,18 @@ impl PageTable {
             )
         }
     }
+}
+
+pub fn kernel_vm_root_mut() -> &'static mut PageTable {
+    unsafe { &mut *KERNEL_VM_ROOT.get() }
+}
+
+pub fn lv2table_mut() -> &'static mut PageTable {
+    unsafe { &mut *LV2TABLE.get() }
+}
+
+pub fn lv2table_addr() -> PhysAddr {
+    PhysAddr::from(LV2TABLE.get() as *const PageTable)
 }
 
 impl Deref for PageTable {

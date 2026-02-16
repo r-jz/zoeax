@@ -1,7 +1,7 @@
 use crate::address::{KernelVAddress, PhysAddr, VirtAddr};
 use crate::common::align_down;
 use crate::memlayout::KERNEL_CODE_PFX;
-use crate::object::page_table::{KERNEL_VM_ROOT, LV2TABLE};
+use crate::object::page_table::{kernel_vm_root_mut, lv2table_addr, lv2table_mut};
 use crate::object::PageTable;
 use crate::println;
 
@@ -35,17 +35,19 @@ pub unsafe fn kernel_vm_init(free_ram_end_phys: usize) {
     let kernel_data_end = ptr::addr_of!(__data_end) as usize;
 
     // first, mappin all physical memory
+    let kernel_vm_root = kernel_vm_root_mut();
+    let lv2_table = lv2table_mut();
     let step: usize = 2_usize.pow(9 + 9 + 9 + 12);
     for paddr in (phyisical_start..phyisical_end).step_by(step) {
         let paddr: PhysAddr = paddr.into();
         let vaddr: VirtAddr = KernelVAddress::from(paddr).into();
         let vpn = vaddr.get_vpn(3);
-        let pte = &mut KERNEL_VM_ROOT[vpn];
+        let pte = &mut kernel_vm_root[vpn];
         pte.write(paddr, flag(true));
     }
     let vpn = VirtAddr::from(kerenel_txt).get_vpn(3);
-    let lv2_addr = PhysAddr::from(&raw const LV2TABLE);
-    let pte = &mut KERNEL_VM_ROOT[vpn];
+    let lv2_addr = lv2table_addr();
+    let pte = &mut kernel_vm_root[vpn];
     pte.write(lv2_addr.bit_and(!KERNEL_CODE_PFX), flag(false));
 
     // mapping elf;
@@ -55,7 +57,7 @@ pub unsafe fn kernel_vm_init(free_ram_end_phys: usize) {
         let vaddr: VirtAddr = vaddr.into();
         let paddr: PhysAddr = vaddr.bit_and(!KERNEL_CODE_PFX).into();
         let vpn = vaddr.get_vpn(2);
-        let pte = &mut LV2TABLE[vpn];
+        let pte = &mut lv2_table[vpn];
         pte.write(paddr, flag(true));
     }
 

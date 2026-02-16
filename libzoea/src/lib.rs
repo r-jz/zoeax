@@ -26,7 +26,7 @@ impl fmt::Write for SyscallWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for ch in s.as_bytes() {
             let ch = *ch;
-            put_char(ch).unwrap();
+            put_char(ch).map_err(|_| fmt::Error)?;
         }
         Ok(())
     }
@@ -36,7 +36,7 @@ impl fmt::Write for SyscallWriter {
 pub fn _print(args: fmt::Arguments) {
     let mut writer = SyscallWriter;
     use fmt::Write;
-    writer.write_fmt(args).unwrap();
+    let _ = writer.write_fmt(args);
 }
 
 #[macro_export]

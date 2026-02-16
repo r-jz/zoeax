@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(naked_functions)]
 
 use core::{arch::naked_asm, panic::PanicInfo};
 
@@ -14,16 +13,14 @@ extern "C" {
 
 #[link_section = ".text.start"]
 #[no_mangle]
-#[naked]
+#[unsafe(naked)]
 extern "C" fn start() {
-    unsafe {
-        naked_asm!(
-        "la sp, {stack_top}",
-        "call main",
-        "call exit",
-        stack_top = sym __stack_top
-        )
-    }
+    naked_asm!(
+    "la sp, {stack_top}",
+    "call main",
+    "call exit",
+    stack_top = sym __stack_top
+    )
 }
 
 #[panic_handler]
@@ -34,5 +31,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 fn exit() -> ! {
-    panic!("exit")
+    loop {
+        core::hint::spin_loop();
+    }
 }

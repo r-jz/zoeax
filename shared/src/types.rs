@@ -30,7 +30,7 @@ impl IPCBuffer {
             .then_some(())
             .ok_or(ErrKind::InvalidOperation)?;
         let ptr = &self.message[0] as *const usize as *const T;
-        unsafe { Ok(ptr.as_ref().unwrap()) }
+        unsafe { Ok(&*ptr) }
     }
 }
 // bits, idx, is_device
@@ -56,7 +56,7 @@ impl BootInfo {
     #[allow(clippy::mut_from_ref)]
     pub fn ipc_buffer(&self) -> &mut IPCBuffer {
         let ptr = self.ipc_buffer_addr as *mut IPCBuffer;
-        unsafe { ptr.as_mut().unwrap() }
+        unsafe { &mut *ptr }
     }
 }
 
