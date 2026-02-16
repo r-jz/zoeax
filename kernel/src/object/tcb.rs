@@ -9,6 +9,8 @@ use crate::println;
 
 use crate::scheduler::push;
 use core::ptr;
+#[cfg(debug_assertions)]
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use super::cnode::CNodeEntry;
 use super::page_table::Page;
@@ -16,7 +18,7 @@ use super::{CNode, CSlot, KObject};
 pub use shared::registers::Register;
 pub use shared::registers::Registers;
 #[cfg(debug_assertions)]
-static mut TCBIDX: usize = 0;
+static TCBIDX: AtomicUsize = AtomicUsize::new(0);
 
 pub type ThreadControlBlock = ListItem<ThreadInfo>;
 
@@ -63,10 +65,7 @@ impl ThreadInfo {
     pub fn new() -> Self {
         let mut ret = Self::default();
         if cfg!(debug_assertions) {
-            let tid = unsafe {
-                TCBIDX += 1;
-                TCBIDX
-            };
+            let tid = TCBIDX.fetch_add(1, Ordering::Relaxed) + 1;
             ret.tid = tid;
         }
         ret

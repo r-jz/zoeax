@@ -1,4 +1,4 @@
-use super::{Capability, CapabilityData, CapabilityType, Something};
+use super::{CapInSlot, Capability, CapabilityData, CapabilityType, Something};
 use crate::address::KernelVAddress;
 use crate::common::{ErrKind, KernelResult};
 use crate::object::{CNode, CNodeEntry, CSlot, KObject};
@@ -36,8 +36,12 @@ impl Capability for CNodeCap {
 }
 
 impl CNodeCap {
+    fn capacity(&self) -> usize {
+        2_usize.pow(self.radix())
+    }
+
     pub fn get_cnode(&mut self) -> &mut [CSlot] {
-        self.get_cnode_with_offset_mut(0, 2_usize.pow(self.radix()))
+        self.get_cnode_with_offset_mut(0, self.capacity())
     }
 
     fn get_cnode_with_offset_mut(&mut self, offset: u32, size: usize) -> &mut [CSlot] {
@@ -49,7 +53,20 @@ impl CNodeCap {
     pub fn get_cnode_ref(&self) -> &[CSlot] {
         let ptr: KernelVAddress = self.get_address().into();
         let ptr: *const CSlot = ptr.into();
-        unsafe { core::slice::from_raw_parts(ptr, 2_usize.pow(self.radix())) }
+        unsafe { core::slice::from_raw_parts(ptr, self.capacity()) }
+    }
+
+    pub fn write_slot<C: Into<CapInSlot>>(&mut self, cap: C, index: usize) -> KernelResult<()> {
+        if index >= self.capacity() {
+            return Err(kerr!(ErrKind::OutOfMemory));
+        }
+        let cnode = self.get_cnode();
+        let slot = &mut cnode[index];
+        if slot.is_some() {
+            return Err(kerr!(ErrKind::NotEmptySlot));
+        }
+        *slot = Some(CNodeEntry::new_with_rawcap(cap.into()));
+        Ok(())
     }
 
     pub fn get_writable(&mut self, num: u32, index: u32) -> KernelResult<&mut CNode> {

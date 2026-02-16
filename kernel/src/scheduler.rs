@@ -1,25 +1,23 @@
 use crate::list::{LinkedList, ListItem};
+use crate::common::SyncUnsafeCell;
 use crate::object::{Registers, ThreadControlBlock, ThreadInfo};
 use crate::println;
 use crate::riscv::{r_sstatus, w_sstatus, wfi, SSTATUS_SIE, SSTATUS_SPIE, SSTATUS_SPP};
 use core::ptr;
+use core::sync::atomic::{AtomicPtr, Ordering};
 
-// TODO: use once_cell
-pub static mut IDLE_THREAD: ThreadControlBlock = ThreadControlBlock::new(ThreadInfo::idle_init());
-
-// TODO: use unsafe_cell
-pub static mut CURRENT_PROC: *mut ThreadControlBlock = ptr::null_mut();
 pub const TICK_HZ: usize = 1000;
 pub const TASK_QUANTUM: usize = 20 * (TICK_HZ / 1000); // 20 ms;
 
-pub static mut CPU_VAR: CpuVar = CpuVar {
+static IDLE_THREAD: SyncUnsafeCell<ThreadControlBlock> =
+    SyncUnsafeCell::new(ThreadControlBlock::new(ThreadInfo::idle_init()));
+static CURRENT_PROC: AtomicPtr<ThreadControlBlock> = AtomicPtr::new(ptr::null_mut());
+static CPU_VAR: SyncUnsafeCell<CpuVar> = SyncUnsafeCell::new(CpuVar {
     sptop: 0,
     sscratch: 0,
     cur_reg_base: ptr::null_mut(),
-};
-
-// TODO: use unsafe_cell
-static mut SCHEDULER: Scheduler = Scheduler::new();
+});
+static SCHEDULER: SyncUnsafeCell<Scheduler> = SyncUnsafeCell::new(Scheduler::new());
 
 #[repr(C)]
 #[derive(Debug)]
@@ -52,43 +50,45 @@ impl Scheduler {
     }
 }
 
-// TODO: remove this attribute
-#[allow(static_mut_refs)]
 pub unsafe fn schedule() {
-    if !SCHEDULER.requested {
+    let scheduler = unsafe { &mut *SCHEDULER.get() };
+    if !scheduler.requested {
         return;
     }
-    let next = if let Some(next) = SCHEDULER.sched() {
+    let next = if let Some(next) = scheduler.sched().map(|next| next as *mut ThreadControlBlock) {
+        let next = unsafe { &mut *next };
         next.set_timeout(TASK_QUANTUM);
-        if (*CURRENT_PROC).is_runnable() {
-            SCHEDULER.push(CURRENT_PROC.as_mut().unwrap());
+        let current = CURRENT_PROC.load(Ordering::Relaxed);
+        if unsafe { (*current).is_runnable() } {
+            scheduler.push(unsafe { current.as_mut().unwrap() });
         }
-        next
+        next as *mut ThreadControlBlock
     } else {
-        if (*CURRENT_PROC).is_runnable() {
-            (*CURRENT_PROC).set_timeout(TASK_QUANTUM);
+        let current = CURRENT_PROC.load(Ordering::Relaxed);
+        if unsafe { (*current).is_runnable() } {
+            unsafe { (*current).set_timeout(TASK_QUANTUM) };
             return;
         }
-        &raw mut IDLE_THREAD
+        IDLE_THREAD.get()
     };
     // change page table
-    (*next).activate_vspace();
-    unsafe {
-        CPU_VAR.cur_reg_base = &raw mut (&mut *next).registers;
-    }
-    CURRENT_PROC = next;
-    SCHEDULER.requested = false;
+    unsafe { (*next).activate_vspace() };
+    let cpu_var = unsafe { &mut *CPU_VAR.get() };
+    cpu_var.cur_reg_base = &raw mut (&mut *next).registers;
+    CURRENT_PROC.store(next, Ordering::Relaxed);
+    scheduler.requested = false;
 }
 
 pub fn create_idle_thread(stack_top: usize) {
-    unsafe {
-        IDLE_THREAD.registers.sepc = idle as *const () as usize;
-        IDLE_THREAD.registers.sstatus = SSTATUS_SPP | SSTATUS_SPIE;
-        IDLE_THREAD.registers.sp = stack_top;
-        CURRENT_PROC = &raw mut IDLE_THREAD;
-        CPU_VAR.cur_reg_base = &raw mut IDLE_THREAD.registers;
-        CPU_VAR.sptop = stack_top;
-    }
+    let idle_tcb = unsafe { &mut *IDLE_THREAD.get() };
+    idle_tcb.registers.sepc = idle as *const () as usize;
+    idle_tcb.registers.sstatus = SSTATUS_SPP | SSTATUS_SPIE;
+    idle_tcb.registers.sp = stack_top;
+    CURRENT_PROC.store(idle_tcb as *mut ThreadControlBlock, Ordering::Relaxed);
+
+    let cpu_var = unsafe { &mut *CPU_VAR.get() };
+    cpu_var.cur_reg_base = &raw mut idle_tcb.registers;
+    cpu_var.sptop = stack_top;
 }
 
 #[no_mangle]
@@ -100,33 +100,37 @@ fn idle() -> ! {
     }
 }
 
-// TODO: remove this attribute
-#[allow(static_mut_refs)]
 pub fn push(tcb: &mut ThreadControlBlock) {
-    unsafe { SCHEDULER.push(tcb) }
+    unsafe { (&mut *SCHEDULER.get()).push(tcb) }
 }
 
 pub fn get_current_tcb_mut<'a>() -> &'a mut ThreadControlBlock {
-    unsafe { &mut *CURRENT_PROC }
+    let current = CURRENT_PROC.load(Ordering::Relaxed);
+    unsafe { &mut *current }
 }
 
-#[allow(static_mut_refs)]
 pub fn require_schedule() {
-    unsafe { SCHEDULER.requested = true }
+    unsafe { (&mut *SCHEDULER.get()).requested = true }
 }
 
 pub fn timer_tick() {
+    let current = CURRENT_PROC.load(Ordering::Relaxed);
+    if ptr::eq(current, IDLE_THREAD.get()) {
+        return;
+    }
     unsafe {
-        if CURRENT_PROC == &raw mut IDLE_THREAD {
-            return;
-        }
-        (&mut *CURRENT_PROC).time_slice -= 1;
-        if (&*CURRENT_PROC).time_slice == 0 {
+        (&mut *current).time_slice -= 1;
+        if (&*current).time_slice == 0 {
             require_schedule()
         }
     }
 }
 
 pub fn get_current_reg<'a>() -> &'a mut Registers {
-    unsafe { &mut *(CPU_VAR.cur_reg_base) }
+    let cpu_var = unsafe { &mut *CPU_VAR.get() };
+    unsafe { &mut *(cpu_var.cur_reg_base) }
+}
+
+pub fn cpu_var_ptr() -> usize {
+    CPU_VAR.get() as usize
 }

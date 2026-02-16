@@ -1,4 +1,4 @@
-use core::{error::Error, fmt};
+use core::{cell::UnsafeCell, error::Error, fmt};
 pub use shared::align_down;
 pub use shared::align_up;
 pub use shared::err_kind::ErrKind;
@@ -8,6 +8,22 @@ pub use shared::types::IPCBuffer;
 pub use shared::types::UntypedInfo;
 
 pub type KernelResult<T> = Result<T, KernelError>;
+
+#[repr(transparent)]
+pub struct SyncUnsafeCell<T>(UnsafeCell<T>);
+
+impl<T> SyncUnsafeCell<T> {
+    pub const fn new(value: T) -> Self {
+        Self(UnsafeCell::new(value))
+    }
+
+    pub const fn get(&self) -> *mut T {
+        self.0.get()
+    }
+}
+
+// SAFETY: Kernel runtime is single-core for mutable access assumptions here.
+unsafe impl<T> Sync for SyncUnsafeCell<T> {}
 
 //TODO: thiserror and anyhow
 #[derive(Debug)]
