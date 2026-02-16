@@ -64,6 +64,7 @@ pub struct ThreadInfo {
 impl ThreadInfo {
     pub fn new() -> Self {
         let mut ret = Self::default();
+        #[cfg(debug_assertions)]
         if cfg!(debug_assertions) {
             let tid = TCBIDX.fetch_add(1, Ordering::Relaxed) + 1;
             ret.tid = tid;
