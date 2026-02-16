@@ -14,7 +14,7 @@ extern "C" {
 
 #[link_section = ".text.start"]
 #[no_mangle]
-#[naked]
+#[unsafe(naked)]
 extern "C" fn start() {
     unsafe {
         naked_asm!(

@@ -74,7 +74,7 @@ pub unsafe fn schedule() {
     // change page table
     (*next).activate_vspace();
     unsafe {
-        CPU_VAR.cur_reg_base = &raw mut (*next).registers;
+        CPU_VAR.cur_reg_base = &raw mut (&mut *next).registers;
     }
     CURRENT_PROC = next;
     SCHEDULER.requested = false;
@@ -120,8 +120,8 @@ pub fn timer_tick() {
         if CURRENT_PROC == &raw mut IDLE_THREAD {
             return;
         }
-        (*CURRENT_PROC).time_slice -= 1;
-        if (*CURRENT_PROC).time_slice == 0 {
+        (&mut *CURRENT_PROC).time_slice -= 1;
+        if (&*CURRENT_PROC).time_slice == 0 {
             require_schedule()
         }
     }

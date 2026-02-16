@@ -37,7 +37,7 @@ const SAPAGEFAULT: usize = 15;
 /// Save context when trap was occured (trap frame),
 /// then call trap_handler
 /// after that, restore context and call sret.
-#[naked]
+#[unsafe(naked)]
 #[allow(dead_code)]
 pub extern "C" fn trap_entry() {
     unsafe {

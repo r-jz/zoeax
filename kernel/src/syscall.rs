@@ -28,9 +28,14 @@ pub fn handle_syscall(syscall_n: usize, reg: &mut Registers) {
                     Ok(None)
                 }
                 InvLabel::CNodeTraverse => {
-                    let root_cnode = get_current_tcb_mut().root_cnode.as_ref().unwrap().cap_ref();
-                    root_cnode.print_traverse();
-                    Ok(None)
+                    if let Some(root_cnode) =
+                        get_current_tcb_mut().root_cnode.as_ref().map(|slot| slot.cap_ref())
+                    {
+                        root_cnode.print_traverse();
+                        Ok(None)
+                    } else {
+                        Err(kerr!(ErrKind::CapNotFound))
+                    }
                 }
                 _ => Err(kerr!(ErrKind::UnknownSysCall)),
             },
@@ -74,7 +79,7 @@ fn handle_invocation(
     let mut root_cnode = current_tcb
         .root_cnode
         .as_ref()
-        .unwrap()
+        .ok_or(kerr!(ErrKind::CapNotFound))?
         .cap_ref()
         .replicate();
     // Hack
@@ -172,7 +177,10 @@ fn handle_invocation(
                     Ok(None)
                 }
                 InvLabel::TcbWriteReg => {
-                    let registers = ipc_buffer.unwrap().read_as::<Registers>().unwrap();
+                    let ipc_buffer = ipc_buffer.ok_or(kerr!(ErrKind::InvalidOperation))?;
+                    let registers = ipc_buffer
+                        .read_as::<Registers>()
+                        .map_err(|_| kerr!(ErrKind::InvalidOperation))?;
                     tcb_cap.set_registers(registers);
                     Ok(None)
                 }

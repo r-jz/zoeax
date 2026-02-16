@@ -38,7 +38,7 @@ unsafe fn syscall(
     if is_error == 0 {
         Ok(val)
     } else {
-        let e_kind = ErrKind::try_from(is_error).unwrap();
+        let e_kind = ErrKind::try_from(is_error).unwrap_or(ErrKind::UnknownSysCall);
         Err((e_kind, val as u16))
     }
 }
@@ -98,7 +98,9 @@ pub fn write_reg<F>(
 where
     F: FnOnce() -> Registers,
 {
-    buffer.write_as(register).unwrap();
+    buffer
+        .write_as(register)
+        .map_err(|_| (ErrKind::InvalidOperation, 0))?;
 
     unsafe {
         syscall(
